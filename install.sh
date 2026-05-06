@@ -33,7 +33,27 @@ have() {
 }
 
 need() {
-  have "$1" || die "missing '$1'. Install it in the base dev container image first; this script avoids apt."
+  have "$1" || die "missing '$1' after bootstrap package installation"
+}
+
+run_as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  elif have sudo; then
+    sudo "$@"
+  else
+    die "need root privileges to install bootstrap packages and sudo is not available"
+  fi
+}
+
+apt_install() {
+  log "Installing bootstrap packages: $*"
+  run_as_root apt-get update
+  run_as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
+}
+
+package_installed() {
+  have dpkg-query && dpkg-query -W "$1" >/dev/null 2>&1
 }
 
 download() {
@@ -156,23 +176,36 @@ link_path() {
 install_dotfiles() {
   log "Linking dotfiles"
   link_path "$DOTFILES_DIR/.zshrc" "$HOME/.zshrc"
-
-  if [ -d "$DOTFILES_DIR/.config/nvim" ]; then
-    link_path "$DOTFILES_DIR/.config/nvim" "$HOME/.config/nvim"
-  elif [ -d "$DOTFILES_DIR/.config/.nvim" ]; then
-    link_path "$DOTFILES_DIR/.config/.nvim" "$HOME/.config/nvim"
-  fi
+  link_path "$DOTFILES_DIR/.config/nvim" "$HOME/.config/nvim"
+  link_path "$DOTFILES_DIR/.config/tmux" "$HOME/.config/tmux"
 }
 
 check_bootstrap_tools() {
+  local packages
+
   [ "$(uname -s)" = "Linux" ] || die "this installer is intended for Linux dev containers."
 
+  packages=()
+
+  have apt-get || die "missing apt-get. This bootstrap installer currently supports Ubuntu/Debian dev containers."
+  have curl || packages+=("curl")
+  package_installed ca-certificates || packages+=("ca-certificates")
+  have tar || packages+=("tar")
+  have find || packages+=("findutils")
+  have install || packages+=("coreutils")
+  have zsh || packages+=("zsh")
+  have git || packages+=("git")
+
+  if [ "${#packages[@]}" -gt 0 ]; then
+    apt_install "${packages[@]}"
+  fi
+
+  need curl
   need tar
   need find
   need install
-
-  have zsh || warn "zsh is not installed. Add it to the dev container image;"
-  have git || warn "git is not installed. Add it to the dev container image;"
+  need zsh
+  need git
 }
 
 main() {
