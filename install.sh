@@ -5,7 +5,6 @@ PREFIX="${PREFIX:-$HOME/.local}"
 BIN_DIR="$PREFIX/bin"
 OPT_DIR="$PREFIX/opt"
 DOTFILES_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-BASE_PROJECT_DIR="${BASE_PROJECT_DIR:-$DOTFILES_DIR}"
 
 NVIM_VERSION="v0.12.2"
 FZF_VERSION="0.71.0"
@@ -202,36 +201,9 @@ install_dotfiles() {
   link_path "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
   link_path "$DOTFILES_DIR/.config/nvim" "$HOME/.config/nvim"
   link_path "$DOTFILES_DIR/.config/tmux" "$HOME/.config/tmux"
-}
-
-install_agent_configs() {
-  local config_path
-
-  log "Writing Codex config"
-  config_path="$BASE_PROJECT_DIR/.codex/config.toml"
-  mkdir -p "$(dirname "$config_path")"
-  cat >"$config_path" <<'EOF'
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-personality = "pragmatic"
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-EOF
-
-  log "Writing Claude config"
-  config_path="$BASE_PROJECT_DIR/.claude/settings.json"
-  mkdir -p "$(dirname "$config_path")"
-  cat >"$config_path" <<'EOF'
-{
-  "model": "opus[1m]",
-  "effortLevel": "xhigh",
-  "theme": "auto",
-  "skipAutoPermissionPrompt": true,
-  "permissions": {
-    "defaultMode": "auto"
-  }
-}
-EOF
+  link_path "$DOTFILES_DIR/.codex/config.toml" "$HOME/.codex/config.toml"
+  link_path "$DOTFILES_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
+  link_path "$DOTFILES_DIR/devcontainers" "$HOME/devcontainers"
 }
 
 check_bootstrap_tools() {
@@ -282,7 +254,6 @@ main() {
   install_tmux_archive=0
 
   install_dotfiles
-  install_agent_configs
 
   start_download \
     "neovim" \

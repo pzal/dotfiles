@@ -1,0 +1,9 @@
+{
+  "model": "opus[1m]",
+  "effortLevel": "xhigh",
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true,
+  "permissions": {
+    "defaultMode": "auto"
+  }
+}
