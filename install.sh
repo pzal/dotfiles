@@ -5,12 +5,15 @@ PREFIX="${PREFIX:-$HOME/.local}"
 BIN_DIR="$PREFIX/bin"
 OPT_DIR="$PREFIX/opt"
 DOTFILES_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BASE_PROJECT_DIR="${BASE_PROJECT_DIR:-$DOTFILES_DIR}"
 
 NVIM_VERSION="v0.12.2"
 FZF_VERSION="0.71.0"
 RIPGREP_VERSION="15.1.0"
 FD_VERSION="v10.4.2"
 TMUX_VERSION="3.6a"
+CODEX_VERSION="rust-v0.128.0"
+CLAUDE_VERSION="2.1.126"
 
 DOWNLOAD_PIDS=()
 DOWNLOAD_NAMES=()
@@ -96,11 +99,12 @@ wait_downloads() {
   [ "$failed" -eq 0 ] || die "one or more downloads failed"
 }
 
-linux_arch() {
+require_linux_x64() {
+  [ "$(uname -s)" = "Linux" ] || die "this installer is intended for Linux dev containers."
+
   case "$(uname -m)" in
-    x86_64 | amd64) printf 'x86_64' ;;
-    aarch64 | arm64) printf 'aarch64' ;;
-    *) die "unsupported CPU architecture: $(uname -m)" ;;
+    x86_64 | amd64) ;;
+    *) die "this installer supports Linux x64 only; got $(uname -m)" ;;
   esac
 }
 
@@ -119,6 +123,25 @@ install_tar_binary() {
   mkdir -p "$(dirname "$destination")"
   install -m 0755 "$found" "$destination"
   rm -rf "$tmp"
+}
+
+install_codex() {
+  local archive="$1"
+  local tmp found
+
+  log "Installing codex"
+  tmp="$(mktemp -d)"
+  tar -xzf "$archive" -C "$tmp"
+  found="$(find "$tmp" -type f -name 'codex*' -perm /111 -print -quit)"
+  [ -n "$found" ] || found="$(find "$tmp" -type f -name 'codex*' -print -quit)"
+  [ -n "$found" ] || die "could not find codex binary inside ${archive}"
+  install -m 0755 "$found" "$BIN_DIR/codex"
+  rm -rf "$tmp"
+}
+
+install_claude() {
+  log "Installing claude"
+  install -m 0755 "$1" "$BIN_DIR/claude"
 }
 
 install_fzf() {
@@ -176,14 +199,45 @@ link_path() {
 install_dotfiles() {
   log "Linking dotfiles"
   link_path "$DOTFILES_DIR/.zshrc" "$HOME/.zshrc"
+  link_path "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
   link_path "$DOTFILES_DIR/.config/nvim" "$HOME/.config/nvim"
   link_path "$DOTFILES_DIR/.config/tmux" "$HOME/.config/tmux"
+}
+
+install_agent_configs() {
+  local config_path
+
+  log "Writing Codex config"
+  config_path="$BASE_PROJECT_DIR/.codex/config.toml"
+  mkdir -p "$(dirname "$config_path")"
+  cat >"$config_path" <<'EOF'
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+personality = "pragmatic"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+EOF
+
+  log "Writing Claude config"
+  config_path="$BASE_PROJECT_DIR/.claude/settings.json"
+  mkdir -p "$(dirname "$config_path")"
+  cat >"$config_path" <<'EOF'
+{
+  "model": "opus[1m]",
+  "effortLevel": "xhigh",
+  "theme": "auto",
+  "skipAutoPermissionPrompt": true,
+  "permissions": {
+    "defaultMode": "auto"
+  }
+}
+EOF
 }
 
 check_bootstrap_tools() {
   local packages
 
-  [ "$(uname -s)" = "Linux" ] || die "this installer is intended for Linux dev containers."
+  require_linux_x64
 
   packages=()
 
@@ -209,57 +263,51 @@ check_bootstrap_tools() {
 }
 
 main() {
-  local arch download_dir nvim_archive fzf_archive ripgrep_archive fd_archive tmux_archive
-  local fzf_arch ripgrep_target fd_target tmux_target
+  local download_dir nvim_archive fzf_archive ripgrep_archive fd_archive tmux_archive codex_archive claude_archive
   local install_tmux_archive
 
   check_bootstrap_tools
   mkdir -p "$BIN_DIR" "$OPT_DIR"
 
-  arch="$(linux_arch)"
   download_dir="$(mktemp -d)"
   trap "rm -rf '$download_dir'" EXIT
-
-  case "$arch" in
-    x86_64)
-      fzf_arch="amd64"
-      ripgrep_target="x86_64-unknown-linux-musl"
-      fd_target="x86_64-unknown-linux-gnu"
-      tmux_target="x86_64"
-      ;;
-    aarch64)
-      fzf_arch="arm64"
-      ripgrep_target="aarch64-unknown-linux-gnu"
-      fd_target="aarch64-unknown-linux-gnu"
-      tmux_target="arm64"
-      ;;
-  esac
 
   nvim_archive="$download_dir/nvim.tar.gz"
   fzf_archive="$download_dir/fzf.tar.gz"
   ripgrep_archive="$download_dir/ripgrep.tar.gz"
   fd_archive="$download_dir/fd.tar.gz"
   tmux_archive="$download_dir/tmux.tar.gz"
+  codex_archive="$download_dir/codex.tar.gz"
+  claude_archive="$download_dir/claude"
   install_tmux_archive=0
 
   install_dotfiles
+  install_agent_configs
 
   start_download \
     "neovim" \
-    "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-${arch}.tar.gz" \
+    "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-x86_64.tar.gz" \
     "$nvim_archive"
   start_download \
     "fzf" \
-    "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-linux_${fzf_arch}.tar.gz" \
+    "https://github.com/junegunn/fzf/releases/download/v${FZF_VERSION}/fzf-${FZF_VERSION}-linux_amd64.tar.gz" \
     "$fzf_archive"
   start_download \
     "ripgrep" \
-    "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-${ripgrep_target}.tar.gz" \
+    "https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
     "$ripgrep_archive"
   start_download \
     "fd" \
-    "https://github.com/sharkdp/fd/releases/download/${FD_VERSION}/fd-${FD_VERSION}-${fd_target}.tar.gz" \
+    "https://github.com/sharkdp/fd/releases/download/${FD_VERSION}/fd-${FD_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
     "$fd_archive"
+  start_download \
+    "codex" \
+    "https://github.com/openai/codex/releases/download/${CODEX_VERSION}/codex-x86_64-unknown-linux-musl.tar.gz" \
+    "$codex_archive"
+  start_download \
+    "claude" \
+    "https://downloads.claude.ai/claude-code-releases/${CLAUDE_VERSION}/linux-x64/claude" \
+    "$claude_archive"
 
   if have tmux || [ -x "$BIN_DIR/tmux" ]; then
     log "tmux already installed"
@@ -267,7 +315,7 @@ main() {
     install_tmux_archive=1
     start_download \
       "tmux" \
-      "https://github.com/tmux/tmux-builds/releases/download/v${TMUX_VERSION}/tmux-${TMUX_VERSION}-linux-${tmux_target}.tar.gz" \
+      "https://github.com/tmux/tmux-builds/releases/download/v${TMUX_VERSION}/tmux-${TMUX_VERSION}-linux-x86_64.tar.gz" \
       "$tmux_archive"
   fi
 
@@ -277,6 +325,8 @@ main() {
   install_fzf "$fzf_archive"
   install_ripgrep "$ripgrep_archive"
   install_fd "$fd_archive"
+  install_codex "$codex_archive"
+  install_claude "$claude_archive"
   if [ "$install_tmux_archive" -eq 1 ]; then
     install_tmux "$tmux_archive"
   fi
