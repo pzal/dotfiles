@@ -178,32 +178,28 @@ install_neovim() {
   rm -rf "$tmp"
 }
 
-link_path() {
+copy_path() {
   local source="$1"
   local target="$2"
 
   mkdir -p "$(dirname "$target")"
 
-  if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
-    return
-  fi
-
   if [ -e "$target" ] || [ -L "$target" ]; then
     rm -rf "$target"
   fi
 
-  ln -s "$source" "$target"
+  cp -R "$source" "$target"
 }
 
 install_dotfiles() {
-  log "Linking dotfiles"
-  link_path "$DOTFILES_DIR/.zshrc" "$HOME/.zshrc"
-  link_path "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
-  link_path "$DOTFILES_DIR/.config/nvim" "$HOME/.config/nvim"
-  link_path "$DOTFILES_DIR/.config/tmux" "$HOME/.config/tmux"
-  link_path "$DOTFILES_DIR/.codex/config.toml" "$HOME/.codex/config.toml"
-  link_path "$DOTFILES_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
-  link_path "$DOTFILES_DIR/devcontainers" "$HOME/devcontainers"
+  log "Copying dotfiles"
+  copy_path "$DOTFILES_DIR/.zshrc" "$HOME/.zshrc"
+  copy_path "$DOTFILES_DIR/.gitconfig" "$HOME/.gitconfig"
+  copy_path "$DOTFILES_DIR/.config/nvim" "$HOME/.config/nvim"
+  copy_path "$DOTFILES_DIR/.config/tmux" "$HOME/.config/tmux"
+  copy_path "$DOTFILES_DIR/.codex/config.toml" "$HOME/.codex/config.toml"
+  copy_path "$DOTFILES_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
+  copy_path "$DOTFILES_DIR/devcontainers" "$HOME/devcontainers"
 }
 
 check_bootstrap_tools() {
