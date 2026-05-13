@@ -217,6 +217,7 @@ check_bootstrap_tools() {
   have install || packages+=("coreutils")
   have zsh || packages+=("zsh")
   have git || packages+=("git")
+  have bwrap || packages+=("bubblewrap")
 
   if [ "${#packages[@]}" -gt 0 ]; then
     apt_install "${packages[@]}"
@@ -228,6 +229,7 @@ check_bootstrap_tools() {
   need install
   need zsh
   need git
+  need bwrap
 }
 
 main() {
