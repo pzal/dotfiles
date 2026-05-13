@@ -11,7 +11,6 @@ FZF_VERSION="0.71.0"
 RIPGREP_VERSION="15.1.0"
 FD_VERSION="v10.4.2"
 TMUX_VERSION="3.6a"
-CODEX_VERSION="rust-v0.128.0"
 CLAUDE_VERSION="2.1.126"
 
 DOWNLOAD_PIDS=()
@@ -217,7 +216,6 @@ check_bootstrap_tools() {
   have install || packages+=("coreutils")
   have zsh || packages+=("zsh")
   have git || packages+=("git")
-  have bwrap || packages+=("bubblewrap")
 
   if [ "${#packages[@]}" -gt 0 ]; then
     apt_install "${packages[@]}"
@@ -229,7 +227,6 @@ check_bootstrap_tools() {
   need install
   need zsh
   need git
-  need bwrap
 }
 
 main() {
@@ -271,7 +268,7 @@ main() {
     "$fd_archive"
   start_download \
     "codex" \
-    "https://github.com/openai/codex/releases/download/${CODEX_VERSION}/codex-x86_64-unknown-linux-musl.tar.gz" \
+    "https://github.com/openai/codex/releases/latest/download/codex-x86_64-unknown-linux-musl.tar.gz" \
     "$codex_archive"
   start_download \
     "claude" \
