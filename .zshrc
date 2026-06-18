@@ -1,7 +1,6 @@
 NEWLINE=$'\n'
 RPROMPT="%F{024}%*%f"
-PROMPT="${NEWLINE}%F{028}%B%n%b%f@%F{024}%B%m%b%f %F{240}%~%f ${NEWLINE}%F{024}%B>%b%f "
-
+PROMPT="${NEWLINE}%F{028}%B%n%b%f@%F{024}%B%m%b%f %F{240}%~%f %(?..%F{160}exit %?%f)${NEWLINE}%F{024}%B>%b%f "
 
 export EDITOR="nvim"
 export VISUAL="$EDITOR"
