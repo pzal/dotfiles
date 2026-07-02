@@ -11,6 +11,16 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 1
 fi
 
+mkdir -p .local
+cat > .local/post_start_command.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+git clone https://github.com/pzal/dotfiles.git /tmp/dotfiles
+/tmp/dotfiles/install.sh
+EOF
+chmod +x .local/post_start_command.sh
+
 if grep -q "${CONTAINER_HOME}/.codex" "$COMPOSE_FILE"; then
     exit 0
 fi
